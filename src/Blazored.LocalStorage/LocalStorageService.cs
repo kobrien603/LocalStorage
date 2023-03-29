@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Blazored.LocalStorage.Exceptions;
 using Blazored.LocalStorage.Serialization;
+using Microsoft.JSInterop;
 
 namespace Blazored.LocalStorage
 {
@@ -11,11 +13,13 @@ namespace Blazored.LocalStorage
     {
         private readonly IStorageProvider _storageProvider;
         private readonly IJsonSerializer _serializer;
+        private readonly IJSRuntime _jSRuntime;
 
-        public LocalStorageService(IStorageProvider storageProvider, IJsonSerializer serializer)
+        public LocalStorageService(IStorageProvider storageProvider, IJsonSerializer serializer, IJSRuntime jsRuntime)
         {
             _storageProvider = storageProvider;
             _serializer = serializer;
+            _jSRuntime = jsRuntime;
         }
 
         public async ValueTask SetItemAsync<T>(string key, T data, CancellationToken cancellationToken = default)
@@ -277,7 +281,7 @@ namespace Blazored.LocalStorage
         }
 
         public event EventHandler<ChangedEventArgs> Changed;
-        private void RaiseOnChanged(string key, object oldValue, object data)
+        private async void RaiseOnChanged(string key, object oldValue, object data)
         {
             var e = new ChangedEventArgs
             {
@@ -287,6 +291,12 @@ namespace Blazored.LocalStorage
             };
 
             Changed?.Invoke(this, e);
+
+            // Raise the storage event
+            await _jSRuntime.InvokeVoidAsync(
+                "dispatchEvent",
+                e
+            );
         }
     }
 }
